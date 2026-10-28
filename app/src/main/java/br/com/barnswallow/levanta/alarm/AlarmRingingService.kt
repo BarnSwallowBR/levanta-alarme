@@ -39,6 +39,7 @@ class AlarmRingingService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val handler = Handler(Looper.getMainLooper())
     private val timeout = Runnable { stopRinging() }
+    private val pending = ArrayDeque<Pair<Int, Int>>()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -68,7 +69,16 @@ class AlarmRingingService : Service() {
             buildNotification(alarmId),
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0,
         )
-        if (_state.value != null) return
+        val current = _state.value
+        if (current != null) {
+            // Outro alarme já está tocando: este entra na fila e toca quando o atual for resolvido.
+            if (current.alarmId != alarmId && pending.none { it.first == alarmId }) pending.addLast(alarmId to snoozeCount)
+            return
+        }
+        beginRinging(alarmId, snoozeCount)
+    }
+
+    private fun beginRinging(alarmId: Int, snoozeCount: Int) {
         _state.value = RingState(alarmId, snoozeCount)
 
         wakeLock = getSystemService(PowerManager::class.java)
@@ -97,6 +107,11 @@ class AlarmRingingService : Service() {
     private fun stopRinging() {
         releaseResources()
         _state.value = null
+        val next = pending.removeFirstOrNull()
+        if (next != null) {
+            beginRinging(next.first, next.second)
+            return
+        }
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -112,6 +127,7 @@ class AlarmRingingService : Service() {
     }
 
     override fun onDestroy() {
+        pending.clear()
         releaseResources()
         _state.value = null
         super.onDestroy()

@@ -182,6 +182,7 @@ fun QrMission(expected: String, onTouch: () -> Unit, onSolved: () -> Unit, onGiv
                     .fillMaxWidth()
                     .aspectRatio(3f / 4f)
                     .clip(RoundedCornerShape(20.dp)),
+                onError = onGiveUp,
             ) { code ->
                 if (done) return@QrScanner
                 if (code == expected) {

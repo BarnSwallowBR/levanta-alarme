@@ -8,7 +8,9 @@ import org.json.JSONArray
 
 /** Frases faladas no alarme, nomes usados nelas e o QR code da missão. */
 class SettingsRepository private constructor(context: Context) {
-    private val prefs = context.getSharedPreferences("levanta_settings", Context.MODE_PRIVATE)
+    // Armazenamento protegido pelo aparelho: legível depois de reiniciar, antes do primeiro desbloqueio.
+    private val prefs = context.createDeviceProtectedStorageContext()
+        .getSharedPreferences("levanta_settings", Context.MODE_PRIVATE)
 
     private val _phrases = MutableStateFlow(loadPhrases())
     val phrases: StateFlow<List<String>> = _phrases.asStateFlow()

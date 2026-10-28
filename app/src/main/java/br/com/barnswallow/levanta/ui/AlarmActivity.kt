@@ -30,6 +30,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -112,7 +113,8 @@ private fun RingingScreen(onFinished: () -> Unit) {
             .safeDrawingPadding(),
     ) {
         if (current != null) {
-            RingingContent(context, current)
+            // Novo estado por alarme: se outro alarme da fila começar, a missão recomeça do zero.
+            key(current.alarmId) { RingingContent(context, current) }
         }
     }
 }

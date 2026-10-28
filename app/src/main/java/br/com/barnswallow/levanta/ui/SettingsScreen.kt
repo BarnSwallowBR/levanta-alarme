@@ -81,6 +81,10 @@ fun SettingsScreen(onBack: () -> Unit) {
     if (scanning) {
         BackHandler { scanning = false }
         RegisterCodeOverlay(
+            onError = {
+                scanning = false
+                Toast.makeText(context, "Não consegui abrir a câmera", Toast.LENGTH_LONG).show()
+            },
             onCode = { code ->
                 settings.setQrCode(code)
                 scanning = false
@@ -249,7 +253,7 @@ private fun PhraseDialog(initial: String, onDismiss: () -> Unit, onSave: (String
 }
 
 @Composable
-private fun RegisterCodeOverlay(onCode: (String) -> Unit, onCancel: () -> Unit) {
+private fun RegisterCodeOverlay(onError: () -> Unit, onCode: (String) -> Unit, onCancel: () -> Unit) {
     var captured by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -263,6 +267,7 @@ private fun RegisterCodeOverlay(onCode: (String) -> Unit, onCancel: () -> Unit) 
                     .fillMaxWidth()
                     .aspectRatio(3f / 4f)
                     .clip(RoundedCornerShape(20.dp)),
+                onError = onError,
             ) { code ->
                 if (!captured) {
                     captured = true

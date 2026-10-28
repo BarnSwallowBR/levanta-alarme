@@ -57,6 +57,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import br.com.barnswallow.levanta.LevantaApp
 import br.com.barnswallow.levanta.alarm.AlarmRingingService
 import br.com.barnswallow.levanta.alarm.AlarmScheduler
 import br.com.barnswallow.levanta.data.Alarm
@@ -214,21 +215,37 @@ private fun PermissionChecklist() {
 
 private fun findIssues(context: Context, requestNotifications: () -> Unit): List<Issue> {
     val packageUri = Uri.parse("package:${context.packageName}")
-    fun open(action: String) {
-        val opened = runCatching { context.startActivity(Intent(action, packageUri)) }.isSuccess
+    fun open(intent: Intent) {
+        val opened = runCatching { context.startActivity(intent) }.isSuccess
         if (!opened) context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri))
     }
+    fun open(action: String) = open(Intent(action, packageUri))
+    val notifications = context.getSystemService(NotificationManager::class.java)
     return buildList {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        val permissionMissing = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
+        if (permissionMissing) {
             add(Issue("Notificações", "Sem isso o alarme não aparece na tela.", requestNotifications))
+        } else if (!notifications.areNotificationsEnabled()) {
+            add(Issue("Notificações desligadas", "Sem isso o alarme não aparece na tela.") {
+                open(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+            })
+        } else {
+            val channel = notifications.getNotificationChannel(LevantaApp.CHANNEL_ALARM)
+            if (channel != null && channel.importance < NotificationManager.IMPORTANCE_HIGH) {
+                add(Issue("Aviso \"Alarme tocando\" silenciado", "Deixe como \"Urgente\"/\"Pop-up\" para o alarme abrir em tela cheia.") {
+                    open(
+                        Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                            .putExtra(Settings.EXTRA_CHANNEL_ID, LevantaApp.CHANNEL_ALARM),
+                    )
+                })
+            }
         }
         if (!AlarmScheduler.canScheduleExact(context) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             add(Issue("Alarmes exatos", "Sem isso o alarme pode tocar atrasado.") { open(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM) })
         }
-        if (Build.VERSION.SDK_INT >= 34 &&
-            !context.getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
+        if (Build.VERSION.SDK_INT >= 34 && !notifications.canUseFullScreenIntent()
         ) {
             add(Issue("Tela cheia", "Deixa o alarme abrir por cima da tela bloqueada.") { open(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT) })
         }

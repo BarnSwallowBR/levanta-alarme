@@ -5,6 +5,7 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
+import android.media.ToneGenerator
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -36,6 +37,7 @@ class AlarmVoice(
 
     private var currentVolume = max(1, (maxVolume * 0.4f).roundToInt())
     private var player: MediaPlayer? = null
+    private var tone: ToneGenerator? = null
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     private var quietUntil = 0L
@@ -73,6 +75,8 @@ class AlarmVoice(
             p.release()
         }
         player = null
+        tone?.release()
+        tone = null
         tts?.stop()
         tts?.shutdown()
         tts = null
@@ -132,6 +136,19 @@ class AlarmVoice(
             RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
         )
         player = candidates.firstNotNullOfOrNull { uri -> createPlayer(uri) }
+        // Sem toque disponível (ex.: antes do primeiro desbloqueio): bipe gerado pelo sistema.
+        if (player == null) {
+            tone = runCatching { ToneGenerator(AudioManager.STREAM_ALARM, ToneGenerator.MAX_VOLUME) }.getOrNull()
+            handler.post(beep)
+        }
+    }
+
+    private val beep = object : Runnable {
+        override fun run() {
+            if (stopped) return
+            tone?.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, BEEP_MS)
+            handler.postDelayed(this, BEEP_MS * 2L)
+        }
     }
 
     private fun createPlayer(uri: Uri): MediaPlayer? {
@@ -167,5 +184,6 @@ class AlarmVoice(
         private const val FIRST_PHRASE_DELAY_MS = 1_500L
         private const val PAUSE_BETWEEN_PHRASES_MS = 5_000L
         private const val DUCKED = 0.15f
+        private const val BEEP_MS = 700
     }
 }

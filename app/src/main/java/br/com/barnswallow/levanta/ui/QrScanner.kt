@@ -25,10 +25,11 @@ import java.util.concurrent.Executors
 
 /** Câmera traseira lendo QR codes e códigos de barras; chama onCode a cada leitura. */
 @Composable
-fun QrScanner(modifier: Modifier = Modifier, onCode: (String) -> Unit) {
+fun QrScanner(modifier: Modifier = Modifier, onError: () -> Unit = {}, onCode: (String) -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentOnCode by rememberUpdatedState(onCode)
+    val currentOnError by rememberUpdatedState(onError)
     val previewView = remember {
         PreviewView(context).apply { scaleType = PreviewView.ScaleType.FILL_CENTER }
     }
@@ -37,9 +38,14 @@ fun QrScanner(modifier: Modifier = Modifier, onCode: (String) -> Unit) {
         val providerFuture = ProcessCameraProvider.getInstance(context)
         val executor = Executors.newSingleThreadExecutor()
         val scanner = BarcodeScanning.getClient()
+        var disposed = false
 
         providerFuture.addListener({
-            val provider = providerFuture.get()
+            if (disposed) return@addListener
+            val provider = runCatching { providerFuture.get() }.getOrElse {
+                currentOnError()
+                return@addListener
+            }
             val preview = Preview.Builder().build().also {
                 it.setSurfaceProvider(previewView.surfaceProvider)
             }
@@ -50,11 +56,13 @@ fun QrScanner(modifier: Modifier = Modifier, onCode: (String) -> Unit) {
             runCatching {
                 provider.unbindAll()
                 provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
-            }
+            }.onFailure { currentOnError() }
         }, ContextCompat.getMainExecutor(context))
 
         onDispose {
-            runCatching { providerFuture.get().unbindAll() }
+            disposed = true
+            // Só desfaz se a câmera já iniciou; get() num future pendente travaria a tela.
+            if (providerFuture.isDone) runCatching { providerFuture.get().unbindAll() }
             executor.shutdown()
             scanner.close()
         }

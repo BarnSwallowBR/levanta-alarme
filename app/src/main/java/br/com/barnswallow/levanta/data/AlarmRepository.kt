@@ -8,7 +8,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class AlarmRepository private constructor(context: Context) {
-    private val prefs = context.getSharedPreferences("levanta_alarms", Context.MODE_PRIVATE)
+    // Armazenamento protegido pelo aparelho: legível depois de reiniciar, antes do primeiro desbloqueio.
+    private val prefs = context.createDeviceProtectedStorageContext()
+        .getSharedPreferences("levanta_alarms", Context.MODE_PRIVATE)
     private val _alarms = MutableStateFlow(loadAlarms())
     val alarms: StateFlow<List<Alarm>> = _alarms.asStateFlow()
 

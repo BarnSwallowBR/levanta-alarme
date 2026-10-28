@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import br.com.barnswallow.levanta.alarm.AlarmRingingService
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -18,6 +19,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             LevantaTheme { LevantaNav() }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Se um alarme está tocando, abrir o app leva direto para a missão.
+        if (AlarmRingingService.state.value != null) startActivity(AlarmActivity.intent(this))
     }
 }
 
