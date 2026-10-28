@@ -18,7 +18,7 @@ data class Alarm(
     val enabled: Boolean = true,
     val label: String = "",
     val mission: Mission = Mission.MATH,
-    val mathDifficulty: Int = 1,
+    val mathDifficulty: Int = 0,
     val mathCount: Int = 3,
     val snoozeLimit: Int = 1,
     val snoozeMinutes: Int = 5,
@@ -72,7 +72,7 @@ data class Alarm(
                 label = json.optString("label", ""),
                 mission = runCatching { Mission.valueOf(json.optString("mission")) }
                     .getOrDefault(Mission.MATH),
-                mathDifficulty = json.optInt("mathDifficulty", 1),
+                mathDifficulty = json.optInt("mathDifficulty", 0),
                 mathCount = json.optInt("mathCount", 3),
                 snoozeLimit = json.optInt("snoozeLimit", 1),
                 snoozeMinutes = json.optInt("snoozeMinutes", 5),

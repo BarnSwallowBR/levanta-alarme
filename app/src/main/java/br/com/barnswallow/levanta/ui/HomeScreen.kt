@@ -11,8 +11,11 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,26 +23,26 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,6 +52,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -62,11 +67,13 @@ import br.com.barnswallow.levanta.alarm.AlarmRingingService
 import br.com.barnswallow.levanta.alarm.AlarmScheduler
 import br.com.barnswallow.levanta.data.Alarm
 import br.com.barnswallow.levanta.data.AlarmRepository
+import br.com.barnswallow.levanta.data.Mission
 import kotlinx.coroutines.delay
 import java.time.Duration
 import java.time.ZonedDateTime
+import java.time.format.TextStyle
+import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(onAdd: () -> Unit, onEdit: (Int) -> Unit, onSettings: () -> Unit) {
     val context = LocalContext.current
@@ -74,35 +81,37 @@ fun HomeScreen(onAdd: () -> Unit, onEdit: (Int) -> Unit, onSettings: () -> Unit)
     val alarms by repo.alarms.collectAsStateWithLifecycle()
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = { Text("Levanta!", fontWeight = FontWeight.Black) },
-                actions = {
-                    IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, contentDescription = "Frases e ajustes") }
-                },
-            )
+            ScreenHeader(title = "Levanta!") {
+                IconButton(onClick = onSettings) {
+                    Icon(Icons.Default.Settings, contentDescription = "Frases, voz e ajustes")
+                }
+            }
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
+            SunriseButton(
+                text = "Novo alarme",
                 onClick = onAdd,
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Novo alarme") },
+                icon = Icons.Default.Add,
+                modifier = Modifier.navigationBarsPadding().width(200.dp),
             )
         },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            item { NextAlarmHero(alarms, onAdd) }
             item { PermissionChecklist() }
-            item { NextAlarmBanner(alarms) }
-            if (alarms.isEmpty()) {
+            if (alarms.isNotEmpty()) {
                 item {
                     Text(
-                        "Nenhum alarme ainda. Toque em \"Novo alarme\".",
+                        "Seus alarmes",
+                        style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 24.dp),
+                        modifier = Modifier.padding(start = 4.dp, top = 8.dp),
                     )
                 }
             }
@@ -112,14 +121,16 @@ fun HomeScreen(onAdd: () -> Unit, onEdit: (Int) -> Unit, onSettings: () -> Unit)
                     onClick = { onEdit(alarm.id) },
                     onToggle = { enabled -> AlarmScheduler.save(context, alarm.copy(enabled = enabled)) },
                     onTest = { AlarmRingingService.start(context, alarm.id) },
+                    modifier = Modifier.animateItem(),
                 )
             }
         }
     }
 }
 
+/** Card de destaque com o próximo alarme, no céu do amanhecer. */
 @Composable
-private fun NextAlarmBanner(alarms: List<Alarm>) {
+private fun NextAlarmHero(alarms: List<Alarm>, onAdd: () -> Unit) {
     var now by remember { mutableStateOf(ZonedDateTime.now()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -127,12 +138,54 @@ private fun NextAlarmBanner(alarms: List<Alarm>) {
             now = ZonedDateTime.now()
         }
     }
-    val next = alarms.filter { it.enabled }.minOfOrNull { it.nextTrigger(now) }
-    Text(
-        text = if (next == null) "Nenhum alarme ligado" else "Próximo alarme em ${formatDuration(Duration.between(now, next))}",
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    val next = alarms.filter { it.enabled }.minByOrNull { it.nextTrigger(now) }
+    val shape = MaterialTheme.shapes.extraLarge
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Dawn.sky, shape)
+            .padding(24.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(LevantaIcons.Sunrise, contentDescription = null, tint = Dawn.Sun, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Próximo alarme", style = MaterialTheme.typography.labelLarge, color = Dawn.Mist)
+        }
+        Spacer(Modifier.height(8.dp))
+        if (next == null) {
+            Text("Nenhum alarme ligado", style = MaterialTheme.typography.headlineMedium, color = Dawn.Ink)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Crie um alarme e escolha a missão que vai te tirar da cama.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Dawn.Mist,
+            )
+            Spacer(Modifier.height(16.dp))
+            FilledTonalButton(onClick = onAdd) { Text("Criar alarme") }
+        } else {
+            val at = next.nextTrigger(now)
+            Text(next.timeText(), style = ClockStyle.copy(fontSize = 72.sp, lineHeight = 76.sp), color = Dawn.Ink)
+            val day = at.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.forLanguageTag("pt-BR"))
+            Text(
+                "Toca em ${formatDuration(Duration.between(now, at))} · $day",
+                style = MaterialTheme.typography.titleMedium,
+                color = Dawn.Sun,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                listOfNotNull(next.label.ifBlank { null }, "Missão: ${missionText(next)}").joinToString(" · "),
+                style = MaterialTheme.typography.bodyMedium,
+                color = Dawn.Mist,
+            )
+        }
+    }
+}
+
+fun missionText(alarm: Alarm): String = when (alarm.mission) {
+    Mission.QR -> "QR code"
+    Mission.MATH -> "${alarm.mathCount} ${if (alarm.mathCount == 1) "conta" else "contas"} ${MathProblem.DIFFICULTY_NAMES[alarm.mathDifficulty.coerceIn(0, 2)].lowercase()}"
 }
 
 fun formatDuration(d: Duration): String {
@@ -148,27 +201,64 @@ fun formatDuration(d: Duration): String {
 }
 
 @Composable
-private fun AlarmCard(alarm: Alarm, onClick: () -> Unit, onToggle: (Boolean) -> Unit, onTest: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
-        Row(
-            modifier = Modifier.padding(start = 20.dp, end = 12.dp, top = 16.dp, bottom = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    alarm.timeText(),
-                    fontSize = 44.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (alarm.enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
+private fun AlarmCard(
+    alarm: Alarm,
+    onClick: () -> Unit,
+    onToggle: (Boolean) -> Unit,
+    onTest: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    val shape = MaterialTheme.shapes.large
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(colors.surfaceContainer, shape)
+            .clickable(onClick = onClick)
+            .padding(start = 20.dp, end = 12.dp, top = 16.dp, bottom = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f).alpha(if (alarm.enabled) 1f else 0.55f)) {
+            if (alarm.label.isNotBlank()) {
+                Text(alarm.label, style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+            }
+            Text(alarm.timeText(), style = ClockStyle.copy(fontSize = 48.sp, lineHeight = 52.sp), color = colors.onSurface)
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (alarm.isRepeating) {
+                    DayDots(alarm.days, alarm.enabled)
+                } else {
+                    Text("Uma vez", style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
+                }
+                Spacer(Modifier.width(12.dp))
+                Icon(
+                    if (alarm.mission == Mission.QR) LevantaIcons.Qr else LevantaIcons.Math,
+                    contentDescription = alarm.mission.label,
+                    tint = colors.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
                 )
-                val details = listOfNotNull(alarm.label.ifBlank { null }, alarm.daysText(), alarm.mission.label)
-                Text(details.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            IconButton(onClick = onTest) {
-                Icon(Icons.Default.PlayArrow, contentDescription = "Testar este alarme agora")
-            }
-            Switch(checked = alarm.enabled, onCheckedChange = onToggle)
         }
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(colors.surfaceContainerHigh)
+                .clickable(onClick = onTest),
+        ) {
+            Icon(Icons.Default.PlayArrow, contentDescription = "Testar este alarme agora", tint = colors.primary)
+        }
+        Spacer(Modifier.width(8.dp))
+        Switch(
+            checked = alarm.enabled,
+            onCheckedChange = onToggle,
+            colors = SwitchDefaults.colors(
+                checkedTrackColor = colors.primary,
+                checkedThumbColor = colors.onPrimary,
+            ),
+        )
     }
 }
 
@@ -189,24 +279,32 @@ private fun PermissionChecklist() {
     val issues = remember(refresh) { findIssues(context) { notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) } }
     if (issues.isEmpty()) return
 
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-        modifier = Modifier.fillMaxWidth(),
+    val colors = MaterialTheme.colorScheme
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.large)
+            .background(colors.errorContainer)
+            .padding(20.dp)
+            .animateContentSize(),
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Warning, contentDescription = null, tint = colors.onErrorContainer)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                "Libere ${if (issues.size == 1) "1 item" else "${issues.size} itens"} para o alarme não falhar",
+                style = MaterialTheme.typography.titleSmall,
+                color = colors.onErrorContainer,
+            )
+        }
+        issues.forEach { issue ->
+            Spacer(Modifier.height(14.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
-                Text(
-                    "  Falta liberar para o alarme não falhar",
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                )
-            }
-            issues.forEach { issue ->
-                Spacer(Modifier.height(12.dp))
-                Text(issue.title, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onErrorContainer)
-                Text(issue.detail, color = MaterialTheme.colorScheme.onErrorContainer)
-                Spacer(Modifier.height(6.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(issue.title, fontWeight = FontWeight.SemiBold, color = colors.onErrorContainer)
+                    Text(issue.detail, style = MaterialTheme.typography.bodySmall, color = colors.onErrorContainer)
+                }
+                Spacer(Modifier.width(8.dp))
                 FilledTonalButton(onClick = issue.fix) { Text("Liberar") }
             }
         }
