@@ -1,0 +1,29 @@
+{
+  "voices": {
+    "antonio": "pt-BR-AntonioNeural",
+    "francisca": "pt-BR-FranciscaNeural",
+    "thalita": "pt-BR-ThalitaMultilingualNeural"
+  },
+  "phrases": {
+    "fa55394aec1bb2b3": "Você não vai ganhar dinheiro na cama. Levanta!",
+    "e0855bc894161d1e": "Geovanna está te esperando, e com você aí deitado não vai adiantar nada.",
+    "6b401675cf759adb": "Ninguém vai fazer por você. Levanta agora, campeão!",
+    "eedb6c155d58cf80": "Cama não paga boleto. Levanta!",
+    "c172db09485b935f": "Seus boletos acordaram antes de você.",
+    "a582d4d7f88de16c": "Quem você quer ser não fica apertando soneca.",
+    "2e8eadf684846edd": "A concorrência já está de pé. E você?",
+    "2c74bed12a3d031a": "Disciplina é fazer mesmo sem vontade. Bora!",
+    "096a9b6aeb71c385": "Geovanna merece a melhor versão de você. Ela não está nessa cama.",
+    "30d58bc5611c7ad4": "O dia de hoje não volta. Bora, campeão!",
+    "1536077f978bc72e": "Você prometeu pra você mesmo. Cumpre.",
+    "20ea900aefeeeab7": "Daqui a um ano você vai agradecer por ter levantado hoje.",
+    "0bdbfed400848913": "Sono extra não constrói nada. Ação constrói.",
+    "e5d9d697a9562ba7": "Lembra por que você colocou esse alarme. Levanta!",
+    "df7f2bba837d5d4f": "Seus objetivos não vão se cumprir sozinhos.",
+    "18daa68ea3dedb83": "Abre o olho, põe o pé no chão e vai.",
+    "701fde3e02f9b0d8": "Geovanna está contando com você. Não decepciona.",
+    "3a42187ef46fe96c": "Rico não é quem dorme mais. Levanta, campeão!",
+    "89695bdeba6ce7c9": "Cinco minutos a mais hoje viram um sonho a menos amanhã.",
+    "78fdb118a2653f19": "Enquanto você dorme, alguém está fazendo o que você queria fazer."
+  }
+}
