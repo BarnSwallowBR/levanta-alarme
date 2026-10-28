@@ -65,6 +65,17 @@ object PhraseRecorder {
         }
     }
 
+    /** Descarta a gravação em andamento (saiu da tela, bloqueou o celular). */
+    fun cancel() {
+        val mr = recorder ?: return
+        runCatching { mr.stop() }
+        mr.release()
+        recorder = null
+        temp?.delete()
+        temp = null
+        _recordingText.value = null
+    }
+
     /** Para e guarda como a voz da frase. Gravação curta demais (stop falha) é descartada. */
     fun stopAndSave(context: Context): Boolean {
         val mr = recorder ?: return false

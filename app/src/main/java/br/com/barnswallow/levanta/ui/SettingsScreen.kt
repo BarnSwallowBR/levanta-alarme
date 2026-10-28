@@ -41,6 +41,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,6 +53,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.com.barnswallow.levanta.data.SettingsRepository
 
@@ -65,6 +68,10 @@ fun SettingsScreen(onBack: () -> Unit) {
     val qrCode by settings.qrCode.collectAsStateWithLifecycle()
     val preview = rememberVoicePreview()
     val colors = MaterialTheme.colorScheme
+
+    // Gravação só vale com a tela aberta: sair ou bloquear o celular descarta.
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { PhraseRecorder.cancel() }
+    DisposableEffect(Unit) { onDispose { PhraseRecorder.cancel() } }
 
     // null = fechado; -1 = frase nova; >= 0 = editando a frase desse índice.
     var editingIndex by remember { mutableStateOf<Int?>(null) }
