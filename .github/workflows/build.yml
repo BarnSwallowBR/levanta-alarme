@@ -1,0 +1,61 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Preparar chave de assinatura
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/levanta.p12"
+            echo "KEYSTORE_FILE=$RUNNER_TEMP/levanta.p12" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Sem KEYSTORE_BASE64: APK assinado com chave de debug (não atualiza por cima de versões anteriores)."
+          fi
+
+      - name: Compilar APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: gradle assembleRelease -PversionCode=${{ github.run_number }} --no-daemon --stacktrace
+
+      - name: Renomear APK
+        run: cp app/build/outputs/apk/release/app-release.apk "Levanta-v1.0.${{ github.run_number }}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Levanta-v1.0.${{ github.run_number }}
+          path: Levanta-v1.0.${{ github.run_number }}.apk
+
+      - name: Publicar release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v1.0.${{ github.run_number }}" "Levanta-v1.0.${{ github.run_number }}.apk" \
+            --title "Levanta! v1.0.${{ github.run_number }}" \
+            --notes "Baixe o arquivo .apk abaixo no celular e toque nele para instalar. Commit: ${{ github.sha }}" \
+            --latest
